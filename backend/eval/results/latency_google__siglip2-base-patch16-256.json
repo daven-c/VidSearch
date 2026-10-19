@@ -1,0 +1,29 @@
+{
+  "benchmark": "search latency, MSR-VTT 1k-A index (exact cosine, no ANN index)",
+  "model": "google/siglip2-base-patch16-256",
+  "videos": 1000,
+  "frames": 16048,
+  "queries": 200,
+  "index_build_s": 38.86241062499903,
+  "latency_ms": {
+    "text_encode": {
+      "p50": 18.248645999847213,
+      "p95": 24.454731249716126,
+      "mean": 19.010940414991637
+    },
+    "vector_search": {
+      "p50": 17.750396000337787,
+      "p95": 30.169937499158543,
+      "mean": 19.165329834831937
+    },
+    "end_to_end": {
+      "p50": 38.758146001782734,
+      "p95": 61.527258295973276,
+      "mean": 42.975364130215894
+    }
+  },
+  "env": {
+    "device": "mps",
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O"
+  }
+}
