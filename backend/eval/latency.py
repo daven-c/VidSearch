@@ -19,7 +19,7 @@ from app.config import settings
 from app.database import VideoStore
 from app.embedding import Encoder
 from app.search import search
-from eval.msrvtt import RESULTS_DIR, load_split
+from eval.msrvtt import RESULTS_DIR, git_commit, load_split
 
 
 def pct(xs: list[float]) -> dict[str, float]:
@@ -79,7 +79,7 @@ def main():
         "queries": len(queries),
         "index_build_s": build_s,
         "latency_ms": {"text_encode": pct(enc_ms), "vector_search": pct(vec_ms), "end_to_end": pct(e2e_ms)},
-        "env": {"device": encoder.device, "platform": platform.platform()},
+        "env": {"device": encoder.device, "platform": platform.platform(), "git_commit": git_commit()},
     }
     RESULTS_DIR.mkdir(exist_ok=True)
     out = RESULTS_DIR / f"latency_{slug}.json"
