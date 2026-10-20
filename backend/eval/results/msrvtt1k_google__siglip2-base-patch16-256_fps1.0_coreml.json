@@ -1,0 +1,45 @@
+{
+  "benchmark": "MSR-VTT 1k-A text-to-video (zero-shot)",
+  "model": "google/siglip2-base-patch16-256",
+  "fps": 1.0,
+  "vision_backend": "coreml",
+  "num_queries": 1000,
+  "metrics": {
+    "t2v_mean_pool": {
+      "R@1": 40.1,
+      "R@5": 62.2,
+      "R@10": 73.1,
+      "MdR": 2.5,
+      "MnR": 24.666
+    },
+    "t2v_max_frame": {
+      "R@1": 40.699999999999996,
+      "R@5": 62.4,
+      "R@10": 72.1,
+      "MdR": 2.0,
+      "MnR": 25.41
+    },
+    "v2t_mean_pool": {
+      "R@1": 30.9,
+      "R@5": 52.1,
+      "R@10": 63.7,
+      "MdR": 5.0,
+      "MnR": 33.411
+    }
+  },
+  "throughput": {
+    "frames_encoded_this_run": 16048,
+    "decode_fps": 703.6560611370585,
+    "encode_fps": 60.35983115371577,
+    "text_queries_per_s": 66.79528116757868
+  },
+  "env": {
+    "device": "mps",
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "processor": "arm",
+    "torch": "2.14.1",
+    "transformers": "5.20.2",
+    "git_commit": "0fed4f5",
+    "timestamp": "2026-10-20T03:54:06+00:00"
+  }
+}

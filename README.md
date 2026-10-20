@@ -17,22 +17,22 @@ All numbers are produced by scripts in [`backend/eval/`](backend/eval) and commi
 
 Mean-pooled frame embeddings; R@K is the % of captions whose ground-truth video ranks in the top K. Max-over-frames scoring and video-to-text numbers are in the JSON files.
 
-**Search latency** over that 1,000-video / 16,048-frame index, measured on the same `search()` path the API serves (Apple M4, 16 GB, MPS):
+**Search latency** over that 1,000-video / 16,048-frame index, measured on the same `search()` path the API serves (Apple M4, 16 GB, MPS). Latency varies with machine load; repeat runs on this machine have ranged from ~32 to ~40 ms p50:
 
 | Stage | p50 | p95 |
 |---|---:|---:|
-| Text encoding | 18 ms | 24 ms |
-| Vector search (LanceDB, exact cosine) | 18 ms | 30 ms |
-| End-to-end (encode + search + moment grouping) | **39 ms** | 62 ms |
+| Text encoding | 18 ms | 27 ms |
+| Vector search (LanceDB, exact cosine) | 19 ms | 34 ms |
+| End-to-end (encode + search + moment grouping) | **40 ms** | 73 ms |
 
 **Indexing**: the SigLIP 2 vision tower runs on the Apple Neural Engine via a Core ML export, with the same retrieval accuracy as PyTorch:
 
 | Vision backend (M4) | R@1 | R@5 | R@10 | Embedding throughput |
 |---|---:|---:|---:|---:|
 | PyTorch, MPS bf16 | 39.8 | 62.9 | 73.5 | 16 frames/s |
-| **Core ML, Neural Engine fp16** | **40.1** | 62.2 | 73.1 | **67 frames/s** |
+| **Core ML, Neural Engine fp16** | **40.1** | 62.2 | 73.1 | **60 frames/s** |
 
-The bulk ingest pipeline (`app/ingest.py`) sustains **77 frames/s end-to-end** (decode → preprocess → embed → write); it indexed all 10,000 MSR-VTT videos (158,530 frames) in 34 minutes.
+Throughput in this table is from the eval, which embeds one video at a time (about 16 frames, padded to the Core ML batch). The bulk ingest pipeline (`app/ingest.py`) batches across videos and sustains **77 frames/s end-to-end** (decode → preprocess → embed → write); it indexed all 10,000 MSR-VTT videos (158,530 frames) in 34 minutes.
 
 ### Reproduce
 
