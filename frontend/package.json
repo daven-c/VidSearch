@@ -1,5 +1,5 @@
 {
-  "name": "frontend",
+  "name": "vidsearch-frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,14 +7,14 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "record-demo": "node scripts/record-demo.mjs"
   },
   "dependencies": {
     "@chakra-ui/form-control": "^2.2.0",
     "@chakra-ui/react": "^3.5.1",
     "@emotion/react": "^11.14.0",
     "next-themes": "^0.4.4",
-    "path": "^0.12.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-icons": "^5.4.0"
@@ -30,9 +30,12 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.16",
     "globals": "^15.14.0",
+    "playwright": "1.63.0",
     "typescript": "~5.6.2",
     "typescript-eslint": "^8.18.2",
     "vite": "^6.0.5",
     "vite-tsconfig-paths": "^5.1.4"
-  }
+  },
+  "license": "MIT",
+  "description": "VidSearch web UI"
 }

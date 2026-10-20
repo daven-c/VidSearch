@@ -169,3 +169,12 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# VidSearch local data (datasets, LanceDB index, uploads)
+backend/data/
+
+# Raw demo recording (demo.gif / demo.mp4 are committed)
+docs/demo.webm
+
+# macOS
+.DS_Store
