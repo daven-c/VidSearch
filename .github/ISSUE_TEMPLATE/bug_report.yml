@@ -1,0 +1,46 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead? Include error messages or logs.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `uv run python -m app.ingest folder ...`
+        2. Search for "..."
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, hardware, and Python / Node versions
+      placeholder: macOS 15.5, Apple M4 16 GB, Python 3.12, Node 22
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Vision backend
+      options:
+        - coreml (Neural Engine)
+        - torch (MPS)
+        - torch (CUDA)
+        - torch (CPU)
+        - not sure
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit
+      description: Output of `git describe --always --dirty`

@@ -1,6 +1,8 @@
 [project]
 name = "vidsearch"
 version = "0.1.0"
+description = "Natural-language search inside videos: SigLIP 2 frame embeddings, LanceDB, FastAPI"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "av>=19.0.1",

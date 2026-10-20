@@ -1,5 +1,9 @@
 # VidSearch
 
+[![CI](https://github.com/daven-c/VidSearch/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/daven-c/VidSearch/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)
+
 Search inside your videos with natural language and jump straight to the matching moment.
 
 VidSearch embeds sampled video frames with [SigLIP 2](https://huggingface.co/google/siglip2-base-patch16-256), stores them in an embedded [LanceDB](https://lancedb.com) index, and answers text queries with ranked videos *and* the timestamp ranges inside them that match. Everything runs locally — no hosted inference APIs — and every number below is reproducible with one command.
@@ -90,6 +94,8 @@ npm ci
 npm run dev
 ```
 
+The dev server proxies `/api` to `http://localhost:8000`; set `VIDSEARCH_API` to use a backend elsewhere. For a deployed build, set `VITE_API_URL` at build time.
+
 ### Bulk ingest
 
 ```bash
@@ -120,6 +126,7 @@ Configuration is via environment variables (or `backend/.env`):
 | `GET` | `/videos` | list indexed videos |
 | `DELETE` | `/videos/{id}` | remove a video and its frames |
 | `GET` | `/videos/{id}/file` | stream the video file |
+| `GET` | `/videos/{id}/thumbnail?t=1.0` | JPEG of the frame at `t` seconds (cached on disk) |
 | `GET` | `/search?q=...&k=10` | ranked videos with matched moments |
 | `GET` | `/benchmarks` | committed eval results |
 
@@ -133,7 +140,7 @@ backend/
   eval/         msrvtt.py, latency.py, metrics.py, results/*.json
   tests/        API and bulk-ingest tests on synthetic videos with a fake encoder (no model download)
 frontend/       React + Vite + Chakra UI: search, library/upload, player, benchmarks
-.github/        CI: ruff, pytest, frontend build
+.github/        CI (ruff, pytest, frontend build), Dependabot, issue and PR templates
 ```
 
 ## Testing
@@ -153,3 +160,20 @@ The backend tests generate solid-colour videos, upload them through the real API
 - Moment-retrieval benchmark (QVHighlights) to measure timestamp accuracy, not just video ranking
 - Background indexing queue for long uploads
 - ANN index (IVF-PQ / HNSW) for large libraries: exact search over 158k frames takes ~105 ms today
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the checks CI runs, and how to keep benchmark results reproducible. All changes to `main` go through pull requests with passing CI. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Security
+
+VidSearch is designed as a local, single-user tool. The API has no authentication, so don't expose it to an untrusted network as-is. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
+## License
+
+VidSearch's source code is released under the [MIT License](LICENSE).
+
+The MIT license covers this repository's code only. Models and datasets that VidSearch downloads at runtime keep their own terms; check each model or dataset card before you use or redistribute them:
+
+- [SigLIP 2](https://huggingface.co/google/siglip2-base-patch16-256) and [CLIP](https://huggingface.co/openai/clip-vit-base-patch32) model weights are fetched from the Hugging Face Hub under their authors' licenses.
+- [MSR-VTT](https://huggingface.co/datasets/friedrichor/MSR-VTT) is a research dataset of clips sourced from YouTube. This repository commits only aggregate eval metrics, never the videos. Don't host MSR-VTT clips in a public deployment.
