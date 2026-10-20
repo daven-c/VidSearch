@@ -96,7 +96,7 @@ const LibraryView = ({ videos, onChange }: { videos: VideoInfo[]; onChange: () =
 					{filtered.slice(0, shown).map((v) => (
 						<Card.Root key={v.video_id} size="sm" overflow="hidden">
 							<Box bg="black">
-								<img src={api.thumbnailUrl(v.video_id)} alt="" loading="lazy"
+								<img src={api.thumbnailUrl(v.video_id, Math.min(v.duration * 0.1, 60))} alt="" loading="lazy"
 									style={{ width: "100%", aspectRatio: "16 / 9", objectFit: "cover", display: "block" }}
 								/>
 							</Box>

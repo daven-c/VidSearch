@@ -6,6 +6,10 @@
 
 Search inside your videos with natural language and jump straight to the matching moment.
 
+![VidSearch demo: searching four Blender open movies](docs/demo.gif)
+
+<sub>48 s walkthrough recorded from the real app ([MP4](docs/demo.mp4), [how it's made](docs/DEMO.md)). Footage: *Big Buck Bunny*, *Elephants Dream*, *Sintel* and *Tears of Steel*, © Blender Foundation, CC BY.</sub>
+
 VidSearch embeds sampled video frames with [SigLIP 2](https://huggingface.co/google/siglip2-base-patch16-256), stores them in an embedded [LanceDB](https://lancedb.com) index, and answers text queries with ranked videos *and* the timestamp ranges inside them that match. Everything runs locally — no hosted inference APIs — and every number below is reproducible with one command.
 
 ## Results
@@ -140,6 +144,8 @@ backend/
   eval/         msrvtt.py, latency.py, metrics.py, results/*.json
   tests/        API and bulk-ingest tests on synthetic videos with a fake encoder (no model download)
 frontend/       React + Vite + Chakra UI: search, library/upload, player, benchmarks
+  scripts/      record-demo.mjs (Playwright walkthrough recorder)
+docs/           demo.gif / demo.mp4 and DEMO.md (footage credits, how to reproduce the recording)
 .github/        CI (ruff, pytest, frontend build), Dependabot, issue and PR templates
 ```
 
@@ -159,6 +165,7 @@ The backend tests generate solid-colour videos, upload them through the real API
 - Shot-boundary-aware sampling instead of fixed fps
 - Moment-retrieval benchmark (QVHighlights) to measure timestamp accuracy, not just video ranking
 - Background indexing queue for long uploads
+- Faster sampling for long videos: decoding every frame to keep 1 per second limits a few feature-length films to ~32 frames/s (vs 77 on short clips); seeking to keyframes would cut decode work
 - ANN index (IVF-PQ / HNSW) for large libraries: exact search over 158k frames takes ~105 ms today
 
 ## Contributing

@@ -13,7 +13,7 @@ const ResultCard = ({ hit, rank }: { hit: SearchHit; rank: number }) => {
 		<>
 			<Card.Root overflow="hidden" size="sm">
 				<Box position="relative" bg="black" cursor="pointer" className="group"
-					onClick={() => setStartAt(best.start)}
+					onClick={() => setStartAt(best.best_t)}
 				>
 					<img src={api.thumbnailUrl(hit.video_id, best.best_t)} alt="" loading="lazy"
 						style={{ width: "100%", aspectRatio: "16 / 9", objectFit: "cover", display: "block" }}

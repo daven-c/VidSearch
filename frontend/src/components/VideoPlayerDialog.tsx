@@ -51,7 +51,12 @@ const VideoPlayerDialog = ({ videoId, filename, duration, moments, startAt, open
 							src={api.videoUrl(videoId)}
 							controls
 							style={{ width: "100%", maxHeight: "60vh" }}
-							onLoadedMetadata={(e) => (e.currentTarget.currentTime = startAt)}
+							// Start here rather than in the effect: the dialog body mounts a commit after
+							// `open` flips, so on first open the ref is still null when the effect runs.
+							onLoadedMetadata={(e) => {
+								e.currentTarget.currentTime = startAt;
+								e.currentTarget.play().catch(() => {});
+							}}
 							onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime)}
 						/>
 					</Box>

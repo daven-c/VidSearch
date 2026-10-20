@@ -172,3 +172,6 @@ cython_debug/
 
 # VidSearch local data (datasets, LanceDB index, uploads)
 backend/data/
+
+# Raw demo recording (demo.gif / demo.mp4 are committed)
+docs/demo.webm
