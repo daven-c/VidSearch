@@ -41,6 +41,7 @@ export interface BenchmarkResult {
 	file: string;
 	benchmark: string;
 	model: string;
+	vision_backend?: string;
 	num_queries?: number;
 	metrics?: Record<string, Metrics>;
 	latency_ms?: Record<string, { p50: number; p95: number; mean: number }>;
@@ -50,7 +51,8 @@ export interface BenchmarkResult {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-	const res = await fetch(`${BASE}${path}`, init);
+	// Fail visibly instead of hanging forever if the backend stops responding
+	const res = await fetch(`${BASE}${path}`, { signal: AbortSignal.timeout(30_000), ...init });
 	if (!res.ok) {
 		const body = await res.json().catch(() => null);
 		throw new Error(body?.detail ?? `${res.status} ${res.statusText}`);
@@ -64,6 +66,7 @@ export const api = {
 	deleteVideo: (id: string) => request<{ deleted: string }>(`/videos/${id}`, { method: "DELETE" }),
 	benchmarks: () => request<BenchmarkResult[]>("/benchmarks"),
 	videoUrl: (id: string) => `${BASE}/videos/${id}/file`,
+	thumbnailUrl: (id: string, t = 1) => `${BASE}/videos/${id}/thumbnail?t=${t.toFixed(1)}`,
 
 	// XHR rather than fetch so upload progress can be reported; indexing happens after the bytes land
 	uploadVideo: (file: File, onProgress: (fraction: number) => void) =>

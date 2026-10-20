@@ -12,12 +12,11 @@ const ResultCard = ({ hit, rank }: { hit: SearchHit; rank: number }) => {
 	return (
 		<>
 			<Card.Root overflow="hidden" size="sm">
-				<Box position="relative" bg="black" cursor="pointer" aspectRatio={16 / 9} className="group"
+				<Box position="relative" bg="black" cursor="pointer" className="group"
 					onClick={() => setStartAt(best.start)}
 				>
-					{/* media fragment makes the browser render the best-matching frame as the poster */}
-					<video src={`${api.videoUrl(hit.video_id)}#t=${best.best_t}`} preload="metadata" muted
-						style={{ width: "100%", height: "100%", objectFit: "cover" }}
+					<img src={api.thumbnailUrl(hit.video_id, best.best_t)} alt="" loading="lazy"
+						style={{ width: "100%", aspectRatio: "16 / 9", objectFit: "cover", display: "block" }}
 					/>
 					<Box position="absolute" inset="0" display="flex" alignItems="center" justifyContent="center"
 						bg="blackAlpha.400" opacity="0" _groupHover={{ opacity: 1 }} transition="opacity 0.15s"

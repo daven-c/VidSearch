@@ -4,6 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "av>=19.0.1",
+    "coremltools>=9.0; sys_platform == 'darwin'",
     "fastapi>=0.149.0",
     "huggingface-hub>=2.2.0",
     "lancedb>=0.40.0",

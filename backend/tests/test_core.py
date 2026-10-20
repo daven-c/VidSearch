@@ -1,10 +1,15 @@
+import io
+import time
+
 import av
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 
 import app.main as main
 from app.database import VideoStore
+from app.search import search
 from app.utilities import group_moments, sample_frames
 from eval.metrics import retrieval_metrics
 
@@ -15,10 +20,17 @@ class FakeEncoder:
     """Embeds frames by mean colour and maps colour words to the same axes."""
 
     dim = 3
+    vision_backend = "fake"
+
+    def preprocess(self, images):
+        return np.array([np.asarray(im, dtype=np.float32).mean((0, 1)) for im in images])
+
+    def embed_pixels(self, pixels):
+        v = pixels + 1e-3
+        return v / np.linalg.norm(v, axis=1, keepdims=True)
 
     def encode_images(self, images):
-        v = np.array([np.asarray(im, dtype=np.float32).mean((0, 1)) for im in images]) + 1e-3
-        return v / np.linalg.norm(v, axis=1, keepdims=True)
+        return self.embed_pixels(self.preprocess(images))
 
     def encode_texts(self, texts):
         v = np.array([COLORS[t] for t in texts], dtype=np.float32) + 1e-3
@@ -61,6 +73,43 @@ def test_sample_frames_rate(tmp_path):
     assert len(frames) == 5 and times[0] == 0 and duration == pytest.approx(5, abs=0.2)
 
 
+def test_bulk_ingest_batches_across_videos_and_resumes(tmp_path, monkeypatch):
+    from app import ingest
+
+    monkeypatch.setattr(ingest.settings, "data_dir", tmp_path / "lib")
+    clips = tmp_path / "clips"
+    clips.mkdir()
+    for name, color in [("a", "red"), ("b", "green"), ("c", "blue")]:
+        make_video(clips / f"{name}.mp4", [(color, 3)])
+    (clips / "notes.txt").write_text("not a video")
+
+    enc = FakeEncoder()
+    store = VideoStore(tmp_path / "db", enc.dim)
+    sources = ingest.folder_sources(clips)
+    assert len(sources) == 3
+    ingest.ingest(sources, enc, store, workers=2, flush_every=2)
+
+    meta = store.video_meta()
+    assert sorted(m["filename"] for m in meta.values()) == ["a.mp4", "b.mp4", "c.mp4"]
+    # frames embedded in one cross-video batch must still land on the right video
+    hit = search(enc, store, "green").hits[0]
+    assert hit.filename == "b.mp4" and len(hit.moments) == 1
+
+    n_rows = store.frames.count_rows()
+    ingest.ingest(ingest.folder_sources(clips), enc, store, workers=2, flush_every=2)
+    assert store.frames.count_rows() == n_rows  # second run skips everything
+
+
+def test_store_sees_writes_from_another_process(tmp_path):
+    # e.g. the API server's store while a bulk ingest writes to the same library
+    server, ingester = VideoStore(tmp_path, 3), VideoStore(tmp_path, 3)
+    assert server.video_meta() == {}
+    ingester.add_video("v1", "v1.mp4", 2.0, [0.0, 1.0], np.eye(3, dtype=np.float32)[:2])
+    time.sleep(2.1)  # read_consistency_interval
+    assert list(server.video_meta()) == ["v1"]
+    assert {r["video_id"] for r in server.search_frames(np.array([1, 0, 0], np.float32), 5)} == {"v1"}
+
+
 def test_upload_and_search_finds_the_right_moment(tmp_path, monkeypatch):
     enc = FakeEncoder()
     store = VideoStore(tmp_path / "db", enc.dim)
@@ -82,5 +131,9 @@ def test_upload_and_search_finds_the_right_moment(tmp_path, monkeypatch):
     assert 4 <= best["best_t"] < 8 and best["start"] >= 2.5 and best["end"] <= 9.5
 
     assert client.get(f"/videos/{info['video_id']}/file").status_code == 200
+    thumb = client.get(f"/videos/{info['video_id']}/thumbnail", params={"t": 5})
+    assert thumb.headers["content-type"] == "image/jpeg"
+    r, g, b = Image.open(io.BytesIO(thumb.content)).convert("RGB").getpixel((32, 32))
+    assert b > 200 and r < 60  # the frame at t=5 is in the blue segment
     assert client.delete(f"/videos/{info['video_id']}").status_code == 200
     assert client.get("/videos").json() == []

@@ -1,3 +1,4 @@
+import io
 from pathlib import Path
 
 import av
@@ -44,6 +45,25 @@ def sample_frames(
             frames.append(last.to_image())
         duration = max(duration, times[-1] if times else 0.0)
     return times, frames, duration
+
+
+def thumbnail_jpeg(path: str | Path, t: float, width: int = 320) -> bytes:
+    """Encode the first frame at or after `t` seconds (or the last frame) as a small JPEG."""
+    with av.open(str(path)) as container:
+        stream = container.streams.video[0]
+        if t > 0 and stream.time_base:
+            container.seek(int(t / stream.time_base), stream=stream)  # seeks to the keyframe before t
+        frame = None
+        for frame in container.decode(stream):
+            if frame.time is not None and frame.time + 1e-6 >= t:
+                break
+        if frame is None:
+            raise ValueError("no decodable frames")
+        img = frame.to_image()
+    img.thumbnail((width, width * 2))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=80)
+    return buf.getvalue()
 
 
 def group_moments(

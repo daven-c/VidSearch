@@ -25,14 +25,22 @@ Mean-pooled frame embeddings; R@K is the % of captions whose ground-truth video 
 | Vector search (LanceDB, exact cosine) | 18 ms | 30 ms |
 | End-to-end (encode + search + moment grouping) | **39 ms** | 62 ms |
 
-Indexing throughput on the same machine: 487 frames/s decode, 16 frames/s embedding.
+**Indexing**: the SigLIP 2 vision tower runs on the Apple Neural Engine via a Core ML export, with the same retrieval accuracy as PyTorch:
+
+| Vision backend (M4) | R@1 | R@5 | R@10 | Embedding throughput |
+|---|---:|---:|---:|---:|
+| PyTorch, MPS bf16 | 39.8 | 62.9 | 73.5 | 16 frames/s |
+| **Core ML, Neural Engine fp16** | **40.1** | 62.2 | 73.1 | **67 frames/s** |
+
+The bulk ingest pipeline (`app/ingest.py`) sustains **77 frames/s end-to-end** (decode → preprocess → embed → write); it indexed all 10,000 MSR-VTT videos (158,530 frames) in 34 minutes.
 
 ### Reproduce
 
 ```bash
 cd backend
 uv sync
-uv run python -m eval.msrvtt                                   # SigLIP 2, full 1k-A (~2.2 GB download on first run)
+uv run python -m eval.msrvtt --backend torch                   # SigLIP 2, full 1k-A (~2.2 GB download on first run)
+uv run python -m eval.msrvtt --backend coreml                  # same, vision tower on the Neural Engine (macOS)
 uv run python -m eval.msrvtt --model openai/clip-vit-base-patch32   # baseline
 uv run python -m eval.latency                                  # latency over the cached index
 uv run python -m eval.msrvtt --limit 100                       # quick smoke run
@@ -46,7 +54,7 @@ Data comes from the public [`friedrichor/MSR-VTT`](https://huggingface.co/datase
 flowchart LR
     subgraph Indexing
         V[Video upload] --> D[PyAV decode<br/>1 fps sampling]
-        D --> E[SigLIP 2 image encoder<br/>bf16 on MPS / fp16 on CUDA]
+        D --> E[SigLIP 2 image encoder<br/>Neural Engine via Core ML / CUDA fp16]
         E --> F[(LanceDB<br/>frames table)]
         E --> P[mean-pool] --> G[(LanceDB<br/>videos table)]
     end
@@ -62,7 +70,9 @@ flowchart LR
 - **Frame-level index, video-level results.** Each sampled frame is a row in LanceDB. A query retrieves the top frames, groups them by video, and merges hits within 2.5 s of each other into *moments*. Frames below 75% of the way from a video's weakest to strongest match are dropped first, so weak neighbours don't stretch a moment. Videos scoring under half the top hit are filtered out instead of padding the results.
 - **SigLIP 2 over CLIP.** SigLIP's sigmoid loss and SigLIP 2's improved training give a stronger shared image-text space at the same model size — measured above on the same pipeline.
 - **Embedded vector DB.** LanceDB runs in-process on local files: no server to deploy or pay for. Tables are compacted after each write; without it, per-video fragments pushed p50 search latency from ~42 ms to ~309 ms.
-- **Precision per device.** bf16 is ~1.5× faster than fp16 on Apple GPUs; CUDA uses fp16 so pre-Ampere cards (no fast bf16) still work.
+- **Neural Engine export.** PyTorch's MPS backend tops out around 22 frames/s for this model on an M4 regardless of batch size. A Core ML export runs on the Neural Engine at ~95 frames/s, but a naive conversion produces wrong embeddings (cosine 0.45 to the reference). Converting truncated models layer by layer showed the 12 encoder blocks were accurate and the attention-pooling head (an `nn.MultiheadAttention` with a learned probe query) was mistranslated. [`app/coreml.py`](backend/app/coreml.py) re-expresses that head with explicit matmuls over the same weights, which converts faithfully (cosine 0.999, unchanged R@1). The backend is picked automatically: Core ML on macOS for SigLIP models, PyTorch elsewhere.
+- **Pipelined bulk ingest.** Worker threads decode and preprocess upcoming videos while the encoder runs on frames batched *across* videos; rows are written to LanceDB in bulk and compacted once. Runs are resumable — already-indexed videos are skipped.
+- **Precision per device.** On the PyTorch path, bf16 is ~1.5× faster than fp16 on Apple GPUs; CUDA uses fp16 so pre-Ampere cards (no fast bf16) still work.
 
 ## Running locally
 
@@ -80,6 +90,17 @@ npm ci
 npm run dev
 ```
 
+### Bulk ingest
+
+```bash
+cd backend
+uv run python -m app.ingest folder ~/Movies/clips     # every video under a folder (symlinked, not copied)
+uv run python -m app.ingest msrvtt                    # all 10,000 MSR-VTT clips (research use only)
+uv run python -m app.ingest msrvtt --limit 500        # a smaller library
+```
+
+The first run on macOS exports the Core ML model (about a minute), and later runs reuse it from `data/coreml/`. Interrupted runs resume where they stopped.
+
 Configuration is via environment variables (or `backend/.env`):
 
 | Variable | Default | |
@@ -87,7 +108,8 @@ Configuration is via environment variables (or `backend/.env`):
 | `VIDSEARCH_MODEL_NAME` | `google/siglip2-base-patch16-256` | any HF SigLIP / SigLIP 2 / CLIP checkpoint |
 | `VIDSEARCH_SAMPLE_FPS` | `1.0` | frames sampled per second of video |
 | `VIDSEARCH_MAX_FRAMES` | `600` | long videos are thinned to this many frames |
-| `VIDSEARCH_DEVICE` | auto | `cuda`, `mps`, or `cpu` |
+| `VIDSEARCH_DEVICE` | auto | `cuda`, `mps`, or `cpu` (PyTorch paths) |
+| `VIDSEARCH_VISION_BACKEND` | auto | `coreml` (Neural Engine, macOS + SigLIP) or `torch` |
 | `VIDSEARCH_DATA_DIR` | `backend/data` | LanceDB index and uploaded videos |
 
 ### API
@@ -105,10 +127,11 @@ Configuration is via environment variables (or `backend/.env`):
 
 ```
 backend/
-  app/          FastAPI app: embedding.py (SigLIP 2), utilities.py (decode, moment grouping),
-                database.py (LanceDB), search.py, main.py
+  app/          FastAPI app: embedding.py (SigLIP 2), coreml.py (Neural Engine export),
+                utilities.py (decode, moment grouping), database.py (LanceDB), search.py,
+                ingest.py (bulk indexing), main.py
   eval/         msrvtt.py, latency.py, metrics.py, results/*.json
-  tests/        end-to-end API test on synthetic videos with a fake encoder (no model download)
+  tests/        API and bulk-ingest tests on synthetic videos with a fake encoder (no model download)
 frontend/       React + Vite + Chakra UI: search, library/upload, player, benchmarks
 .github/        CI: ruff, pytest, frontend build
 ```
@@ -128,4 +151,5 @@ The backend tests generate solid-colour videos, upload them through the real API
 - Re-ranking top candidates with a cross-modal reranker
 - Shot-boundary-aware sampling instead of fixed fps
 - Moment-retrieval benchmark (QVHighlights) to measure timestamp accuracy, not just video ranking
-- Background indexing queue for long uploads; ANN index (IVF-PQ) for large libraries
+- Background indexing queue for long uploads
+- ANN index (IVF-PQ / HNSW) for large libraries: exact search over 158k frames takes ~105 ms today

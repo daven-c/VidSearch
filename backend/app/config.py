@@ -10,6 +10,8 @@ class Settings(BaseSettings):
 
     model_name: str = "google/siglip2-base-patch16-256"
     device: str | None = None  # auto: cuda > mps > cpu
+    vision_backend: str = "auto"  # auto: coreml on Apple Silicon for SigLIP models, else torch
+    coreml_batch_size: int = 16  # ANE throughput is flat from 8-32 and drops at 64 on an M4
     sample_fps: float = 1.0
     max_frames: int = 600
     batch_size: int = 32

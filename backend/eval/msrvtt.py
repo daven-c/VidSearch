@@ -63,15 +63,18 @@ def main():
     ap.add_argument("--fps", type=float, default=settings.sample_fps)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--device", default=None)
+    ap.add_argument("--backend", default=settings.vision_backend, choices=["auto", "torch", "coreml"])
     args = ap.parse_args()
 
     items = load_split(args.limit)
     video_dir = settings.data_dir / "msrvtt" / "videos"
     ensure_videos(items, video_dir)
 
-    encoder = Encoder(args.model, args.device)
+    encoder = Encoder(args.model, args.device, args.backend)
+    # torch results keep the original filenames; other backends are tagged so they sit side by side
+    tag = "" if encoder.vision_backend == "torch" else f"_{encoder.vision_backend}"
     slug = args.model.replace("/", "__")
-    cache_dir = settings.data_dir / "msrvtt" / "cache" / f"{slug}_fps{args.fps}"
+    cache_dir = settings.data_dir / "msrvtt" / "cache" / f"{slug}_fps{args.fps}{tag}"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     frame_embs: list[np.ndarray] = []
@@ -106,6 +109,7 @@ def main():
         "benchmark": "MSR-VTT 1k-A text-to-video (zero-shot)",
         "model": args.model,
         "fps": args.fps,
+        "vision_backend": encoder.vision_backend,
         "num_queries": len(items),
         "metrics": {
             "t2v_mean_pool": retrieval_metrics(sim_mean),
@@ -131,10 +135,10 @@ def main():
 
     RESULTS_DIR.mkdir(exist_ok=True)
     suffix = f"_n{args.limit}" if args.limit else ""
-    out = RESULTS_DIR / f"msrvtt1k_{slug}_fps{args.fps}{suffix}.json"
+    out = RESULTS_DIR / f"msrvtt1k_{slug}_fps{args.fps}{tag}{suffix}.json"
     out.write_text(json.dumps(results, indent=2) + "\n")
 
-    print(f"\n{args.model}  fps={args.fps}  n={len(items)}  device={encoder.device}")
+    print(f"\n{args.model}  fps={args.fps}  n={len(items)}  vision={encoder.vision_backend}")
     print(f"{'protocol':<16}{'R@1':>7}{'R@5':>7}{'R@10':>7}{'MdR':>6}{'MnR':>8}")
     for name, m in results["metrics"].items():
         print(f"{name:<16}{m['R@1']:>7.1f}{m['R@5']:>7.1f}{m['R@10']:>7.1f}{m['MdR']:>6.0f}{m['MnR']:>8.1f}")

@@ -2,6 +2,7 @@ import json
 import re
 import shutil
 import uuid
+from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -13,6 +14,7 @@ from app.database import get_store
 from app.embedding import get_encoder
 from app.models import SearchResponse, VideoInfo
 from app.search import index_video, search
+from app.utilities import thumbnail_jpeg
 
 app = FastAPI(title="VidSearch")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -58,12 +60,32 @@ def delete_video(video_id: str):
 
 @app.get("/videos/{video_id}/file")
 def video_file(video_id: str):
+    return FileResponse(_video_path(video_id))
+
+
+@app.get("/videos/{video_id}/thumbnail")
+def video_thumbnail(video_id: str, t: float = Query(1.0, ge=0)):
+    """JPEG of the frame at `t`, cached on disk. Lets grids show posters without opening videos."""
+    t = round(t, 1)
+    cached = settings.data_dir / "thumbs" / f"{video_id}_{t}.jpg"
+    if not cached.exists():
+        path = _video_path(video_id)
+        try:
+            data = thumbnail_jpeg(path, t)
+        except Exception as e:
+            raise HTTPException(422, f"could not decode frame: {e}") from e
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        cached.write_bytes(data)
+    return FileResponse(cached, media_type="image/jpeg", headers={"Cache-Control": "max-age=86400"})
+
+
+def _video_path(video_id: str) -> Path:
     if not re.fullmatch(r"[A-Za-z0-9_-]+", video_id):
         raise HTTPException(400, "bad id")
     matches = list(settings.video_dir.glob(f"{video_id}.*"))
     if not matches:
         raise HTTPException(404, "not found")
-    return FileResponse(matches[0])
+    return matches[0]
 
 
 @app.get("/benchmarks")

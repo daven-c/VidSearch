@@ -32,7 +32,8 @@ const BenchmarksView = () => {
 				<Box key={r.file}>
 					<Heading size="md">{r.benchmark}</Heading>
 					<Text textStyle="sm" color="fg.muted" mt="1">
-						{r.model} · {r.num_queries} queries · {r.env.device} · commit {r.env.git_commit}
+						{r.model} · {r.vision_backend === "coreml" ? "Core ML / Neural Engine" : r.env.device} ·{" "}
+						{r.num_queries} queries · commit {r.env.git_commit}
 					</Text>
 					<Table.Root size="sm" mt="3" variant="outline">
 						<Table.Header>
