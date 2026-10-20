@@ -175,3 +175,6 @@ backend/data/
 
 # Raw demo recording (demo.gif / demo.mp4 are committed)
 docs/demo.webm
+
+# macOS
+.DS_Store
