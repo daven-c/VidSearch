@@ -2,7 +2,7 @@
 
 ![VidSearch demo](demo.gif)
 
-[Full-quality MP4](demo.mp4) · 48 s · recorded from the real app by [`frontend/scripts/record-demo.mjs`](../frontend/scripts/record-demo.mjs)
+[Full-quality MP4](demo.mp4) (64 s, 1080p, 60 fps) · [interactive tour](tour.html) (8 click-through steps; download it and open it in a browser) · recorded from the real app by [`frontend/scripts/record-demo.mjs`](../frontend/scripts/record-demo.mjs)
 
 The demo searches four Blender Foundation open movies, about 48 minutes of footage (2,874 frames at 1 fps), indexed locally on an Apple M4. MSR-VTT clips are research-only and sourced from YouTube, so they're deliberately not used here.
 
@@ -48,11 +48,14 @@ VIDSEARCH_DATA_DIR=$PWD/data/demo/library uv run uvicorn app.main:app --port 800
 cd ../frontend
 VIDSEARCH_API=http://localhost:8002 npx vite --port 5175 &
 
-# 5. Record, then encode for the README
-DEMO_URL=http://localhost:5175 npm run record-demo        # writes docs/demo.webm
-cd ../docs
-ffmpeg -i demo.webm -c:v libx264 -preset slow -crf 26 -pix_fmt yuv420p -movflags +faststart demo.mp4
-ffmpeg -i demo.webm -vf "fps=10,scale=800:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" demo.gif
+# 5. Record: writes frontend/demo-out/raw.mp4 (2x, 60 fps master) and demo-out/tour/ (gitignored)
+DEMO_URL=http://localhost:5175 npm run record-demo
+
+# 6. Encode for the README, and build the interactive tour
+ffmpeg -i demo-out/raw.mp4 -vf "scale='min(1920,iw)':-2:flags=lanczos" \
+  -c:v libx264 -preset slow -crf 24 -pix_fmt yuv420p -movflags +faststart ../docs/demo.mp4
+ffmpeg -i demo-out/raw.mp4 -vf "fps=10,scale=720:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" ../docs/demo.gif
+npm run build-tour                                        # writes docs/tour.html
 ```
 
-The recorder warms the backend's thumbnail cache before it starts, then types each query, opens the top result (playback starts at the best-matching frame), steps through the matched moments, and finishes on the Library and Benchmarks tabs. It overlays a cursor and captions, since Playwright recordings don't show the mouse pointer. To change what's shown, edit `QUERIES` in the script.
+The recorder warms the backend's thumbnail cache before it starts, then types each query, opens a result (the first from its matched-range badge, the others from the thumbnail, which plays from the best-matching frame), steps through the matched moments, and finishes on the Library and Benchmarks tabs. Frames come from the DevTools screencast at 2x device scale, and a cursor, captions, title cards and a zooming camera are drawn inside the page, since Playwright doesn't render the mouse pointer. Every click also saves a screenshot and hotspot for the tour. To change what's shown, edit `QUERIES` and `STEPS` in the script.
