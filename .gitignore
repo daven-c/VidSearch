@@ -178,3 +178,6 @@ docs/demo.webm
 
 # macOS
 .DS_Store
+
+# Demo recorder output (raw 2x master + tour screenshots)
+frontend/demo-out/
